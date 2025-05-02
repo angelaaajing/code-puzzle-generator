@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { CodeBlock } from '@/lib/types';
 import { GRID_CONFIG } from '@/lib/config';
 import type { CSSProperties } from 'react';
+import { CodeBlockWithExplanation } from '@/components/CodeBlockWithExplanation';
 
 interface DraggableBlockProps {
   block: CodeBlock;
@@ -48,13 +49,10 @@ const SortableBlock = ({ block, indentation, row }: DraggableBlockProps) => {
       {...attributes}
       {...listeners}
       className="py-1 px-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 cursor-move hover:shadow select-none group"
-      title={block.explanation}
       data-row={row}
       data-indentation={indentation}
     >
-      <pre className="text-sm font-mono whitespace-pre">
-        {block.code}
-      </pre>
+      <CodeBlockWithExplanation block={block} />
       {/* Indentation controls */}
       <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 px-2">
         <button
@@ -130,103 +128,3 @@ export const Canvas = ({ placedBlocks }: CanvasProps) => {
     </div>
   );
 };
-
-// import { useDroppable } from '@dnd-kit/core';
-// import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-// import { CodeBlock } from '@/lib/types';
-// import { SortableItem } from '@/components/SortableItem';
-
-// interface DropZoneProps {
-//   rowIndex: number;
-//   columnIndex: number;
-//   onDrop?: (rowIndex: number, columnIndex: number) => void;
-//   children?: React.ReactNode;
-// }
-
-// const DropZone = ({ rowIndex, columnIndex, onDrop, children }: DropZoneProps) => {
-//   const { setNodeRef } = useDroppable({
-//     id: `${rowIndex}-${columnIndex}`,
-//     data: { rowIndex, columnIndex },
-//   });
-
-//   return (
-//     <div
-//       ref={setNodeRef}
-//       className={`min-h-[50px] border-2 border-dashed border-transparent hover:border-gray-200 transition-colors ${
-//         children ? 'border-none' : ''
-//       }`}
-//     >
-//       {children}
-//     </div>
-//   );
-// };
-
-// interface CanvasProps {
-//   blocks: CodeBlock[];
-//   placedBlocks: Map<string, CodeBlock>; // key: "row-column", value: block
-//   onBlockPlaced: (blockId: number, rowIndex: number, columnIndex: number) => void;
-//   onBlockMoved: (blockId: number, newRowIndex: number) => void;
-// }
-
-// export const Canvas = ({
-//   blocks,
-//   placedBlocks,
-//   onBlockPlaced,
-//   onBlockMoved,
-// }: CanvasProps) => {
-//   // Create a grid structure with rows and columns
-//   const rows = 20; // Adjust based on your needs
-//   const columns = 4; // For different indentation levels
-
-//   // Group blocks by row for sorting
-//   const blocksByRow = new Map<number, CodeBlock[]>();
-//   placedBlocks.forEach((block, position) => {
-//     const [row] = position.split('-').map(Number);
-//     if (!blocksByRow.has(row)) {
-//       blocksByRow.set(row, []);
-//     }
-//     blocksByRow.get(row)?.push(block);
-//   });
-
-//   return (
-//     <div className="h-full bg-white p-4 overflow-auto">
-//       <div className="space-y-2">
-//         {Array.from({ length: rows }, (_, rowIndex) => (
-//           <div key={rowIndex} className="flex">
-//             {Array.from({ length: columns }, (_, columnIndex) => {
-//               const position = `${rowIndex}-${columnIndex}`;
-//               const block = placedBlocks.get(position);
-
-//               return (
-//                 <div
-//                   key={`${rowIndex}-${columnIndex}`}
-//                   className="flex-1"
-//                   style={{ marginLeft: `${columnIndex * 2}rem` }}
-//                 >
-//                   <SortableContext
-//                     items={blocksByRow.get(rowIndex) || []}
-//                     strategy={verticalListSortingStrategy}
-//                   >
-//                     <DropZone
-//                       rowIndex={rowIndex}
-//                       columnIndex={columnIndex}
-//                       onDrop={(row, col) => onBlockPlaced(block?.id || -1, row, col)}
-//                     >
-//                       {block && (
-//                         <SortableItem
-//                           id={String(block.id)}
-//                           block={block}
-//                           rowIndex={rowIndex}
-//                         />
-//                       )}
-//                     </DropZone>
-//                   </SortableContext>
-//                 </div>
-//               );
-//             })}
-//           </div>
-//         ))}
-//       </div>
-//     </div>
-//   );
-// };
