@@ -42,68 +42,76 @@ function calculateGridPosition(x: number, y: number, canvasRect: DOMRect): { ind
 }
 
 export default function PuzzlePage() {
-  const [puzzle, setPuzzle] = useState<Puzzle>(() => {
-    // Get the puzzle from localStorage
-    const savedPuzzle = localStorage.getItem('NEW_PUZZLE');
-    if (savedPuzzle) {
-      try {
-        const parsedPuzzle = JSON.parse(savedPuzzle);
-        // Clear the stored puzzle to avoid reusing it
-        localStorage.removeItem('NEW_PUZZLE');
-        return parsedPuzzle;
-      } catch (error) {
-        console.error('Failed to parse puzzle:', error);
+  // Only access localStorage on the client to avoid SSR errors
+  const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
+
+  useEffect(() => {
+    // This runs only on the client
+    let loadedPuzzle: Puzzle | null = null;
+    try {
+      const savedPuzzle = typeof window !== 'undefined' ? window.localStorage.getItem('NEW_PUZZLE') : null;
+      if (savedPuzzle) {
+        try {
+          loadedPuzzle = JSON.parse(savedPuzzle);
+          // Clear the stored puzzle to avoid reusing it
+          window.localStorage.removeItem('NEW_PUZZLE');
+        } catch (error) {
+          console.error('Failed to parse puzzle:', error);
+        }
       }
+    } catch (e) {
+      // localStorage not available or not defined
     }
-    
-    // Fallback puzzle in case there's no saved puzzle or parsing fails
-    return {
-      blocks: [
-        {
-          id: 1,
-          code: 'def is_palindrome(s: str) -> bool:',
-          explanation: 'Function declaration for palindrome checker',
-          correctRow: 0,
-          correctCol: 0,
-        },
-        {
-          id: 2,
-          code: 'dq = list(s)',
-          explanation: 'Convert string to list for efficient operations',
-          correctRow: 1,
-          correctCol: 1,
-        },
-        {
-          id: 3,
-          code: 'while len(dq) > 1:',
-          explanation: 'Loop until one or zero characters remain',
-          correctRow: 2,
-          correctCol: 1,
-        },
-        {
-          id: 4,
-          code: 'if dq.pop(0) != dq.pop():',
-          explanation: 'Compare characters from both ends',
-          correctRow: 3,
-          correctCol: 2,
-        },
-        {
-          id: 5,
-          code: 'return False',
-          explanation: 'Return False if characters dont match',
-          correctRow: 4,
-          correctCol: 3,
-        },
-        {
-          id: 6,
-          code: 'return True',
-          explanation: 'Return True if all characters matched',
-          correctRow: 5,
-          correctCol: 1,
-        },
-      ],
-    };
-  });
+    if (!loadedPuzzle) {
+      loadedPuzzle = {
+        blocks: [
+          {
+            id: 1,
+            code: 'def is_palindrome(s: str) -> bool:',
+            explanation: 'Function declaration for palindrome checker',
+            correctRow: 0,
+            correctCol: 0,
+          },
+          {
+            id: 2,
+            code: 'dq = list(s)',
+            explanation: 'Convert string to list for efficient operations',
+            correctRow: 1,
+            correctCol: 1,
+          },
+          {
+            id: 3,
+            code: 'while len(dq) > 1:',
+            explanation: 'Loop until one or zero characters remain',
+            correctRow: 2,
+            correctCol: 1,
+          },
+          {
+            id: 4,
+            code: 'if dq.pop(0) != dq.pop():',
+            explanation: 'Compare characters from both ends',
+            correctRow: 3,
+            correctCol: 2,
+          },
+          {
+            id: 5,
+            code: 'return False',
+            explanation: 'Return False if characters dont match',
+            correctRow: 4,
+            correctCol: 3,
+          },
+          {
+            id: 6,
+            code: 'return True',
+            explanation: 'Return True if all characters matched',
+            correctRow: 5,
+            correctCol: 1,
+          },
+        ],
+      };
+    }
+    setPuzzle(loadedPuzzle);
+  }, []);
 
   const [placedBlocks, setPlacedBlocks] = useState<PlacedBlock[]>([]);
   const [placedBlockIds, setPlacedBlockIds] = useState<Set<number>>(new Set());
@@ -126,6 +134,7 @@ export default function PuzzlePage() {
   );
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
+    if (!puzzle) return;
     const { active, over } = event;
     if (!over) {
       setActiveBlock(null);
@@ -146,7 +155,9 @@ export default function PuzzlePage() {
     // Get the current mouse position and canvas rect
     const mouseX = (event.activatorEvent as MouseEvent).clientX;
     const mouseY = (event.activatorEvent as MouseEvent).clientY;
-    const canvasRect = document.querySelector('[data-droppable-id="canvas"]')?.getBoundingClientRect();
+    const canvasRect = typeof window !== 'undefined'
+      ? document.querySelector('[data-droppable-id="canvas"]')?.getBoundingClientRect()
+      : undefined;
     if (!canvasRect) return;
 
     // Calculate grid position
@@ -236,7 +247,7 @@ export default function PuzzlePage() {
     }
 
     setActiveBlock(null);
-  }, [puzzle.blocks, placedBlocks, placedBlockIds, history, historyIndex]);
+  }, [puzzle, placedBlocks, placedBlockIds, history, historyIndex]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
@@ -257,6 +268,7 @@ export default function PuzzlePage() {
   }, [history, historyIndex]);
 
   const handleHint = useCallback(() => {
+    if (!puzzle) return;
     // Find first incorrectly placed or unplaced block
     for (const block of puzzle.blocks) {
       const placed = placedBlocks.find(item => item.block.id === block.id);
@@ -266,9 +278,10 @@ export default function PuzzlePage() {
       }
     }
     alert('All blocks are correctly placed!');
-  }, [puzzle.blocks, placedBlocks]);
+  }, [puzzle, placedBlocks]);
 
   const handleCheck = useCallback(() => {
+    if (!puzzle) return;
     // Check if blocks are in correct positions
     let isCorrect = true;
     const sortedPlaced = [...placedBlocks].sort((a, b) => a.row - b.row);
@@ -285,9 +298,10 @@ export default function PuzzlePage() {
       }
     }
     alert(isCorrect ? 'Correct! Well done!' : 'Not quite right. Keep trying!');
-  }, [puzzle.blocks, placedBlocks]);
+  }, [puzzle, placedBlocks]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    if (!puzzle) return;
     const { active } = event;
     const activeId = active.id.toString();
     const isFromCanvas = activeId.startsWith('canvas-');
@@ -302,24 +316,80 @@ export default function PuzzlePage() {
     } else {
       setActiveBlock({ block });
     }
-  }, [puzzle.blocks, placedBlocks]);
+  }, [puzzle, placedBlocks]);
 
   // Handle indentation adjustments
   useEffect(() => {
     const handleIndentationAdjust = (event: Event) => {
       const { blockId, change } = (event as CustomEvent).detail;
-      setPlacedBlocks(blocks => 
-        blocks.map(item => 
+      
+      setPlacedBlocks(currentBlocks => {
+        const newBlocks = currentBlocks.map(item => 
           item.block.id === blockId 
             ? { ...item, indentation: Math.max(0, item.indentation + change) }
             : item
-        )
-      );
+        );
+
+        // Add the new state to history
+        setHistory(currentHistory => {
+          const newHistory = currentHistory.slice(0, historyIndex + 1);
+          newHistory.push({
+            placed: newBlocks,
+            placedIds: placedBlockIds
+          });
+          return newHistory;
+        });
+
+        setHistoryIndex(current => current + 1);
+        return newBlocks;
+      });
     };
 
-    window.addEventListener('adjust-indentation', handleIndentationAdjust);
-    return () => window.removeEventListener('adjust-indentation', handleIndentationAdjust);
-  }, []);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('adjust-indentation', handleIndentationAdjust);
+      return () => window.removeEventListener('adjust-indentation', handleIndentationAdjust);
+    }
+  }, [historyIndex, placedBlockIds]); // Only depend on primitive values
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check if Ctrl key is pressed
+      if (event.ctrlKey || event.metaKey) {
+        switch (event.key.toLowerCase()) {
+          case 'z':
+            event.preventDefault();
+            if (event.shiftKey) {
+              // Ctrl+Shift+Z for Redo (alternative)
+              handleRedo();
+            } else {
+              // Ctrl+Z for Undo
+              handleUndo();
+            }
+            break;
+          case 'y':
+            // Ctrl+Y for Redo
+            event.preventDefault();
+            handleRedo();
+            break;
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      // Add event listener
+      window.addEventListener('keydown', handleKeyDown);
+
+      // Cleanup
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [handleUndo, handleRedo]);
+
+  // Don't render until puzzle is loaded (client-side)
+  if (!puzzle) {
+    return null;
+  }
 
   return (
     <main className="flex flex-col h-screen bg-white dark:bg-gray-900">
