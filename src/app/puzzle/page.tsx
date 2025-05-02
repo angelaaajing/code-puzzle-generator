@@ -121,6 +121,12 @@ export default function PuzzlePage() {
   }>>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [activeBlock, setActiveBlock] = useState<{block: CodeBlock; indentation?: number} | null>(null);
+  const [incorrectBlocks, setIncorrectBlocks] = useState<Set<number>>(new Set());
+  const [hintBlock, setHintBlock] = useState<{ 
+    id: number; 
+    directions: Array<'up' | 'down' | 'left' | 'right'>;
+  } | null>(null);
+  const [hintCooldown, setHintCooldown] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -268,22 +274,65 @@ export default function PuzzlePage() {
   }, [history, historyIndex]);
 
   const handleHint = useCallback(() => {
-    if (!puzzle) return;
-    // Find first incorrectly placed or unplaced block
-    for (const block of puzzle.blocks) {
-      const placed = placedBlocks.find(item => item.block.id === block.id);
-      if (!placed || placed.indentation !== block.correctCol) {
-        alert(`Hint: "${block.code}" should go at indentation level ${block.correctCol}`);
-        return;
+    if (!puzzle || hintCooldown) return;
+    
+    // Find all incorrectly placed blocks
+    const incorrectBlocks = puzzle.blocks
+      .map(block => {
+        const placed = placedBlocks.find(item => item.block.id === block.id);
+        if (!placed) return null;
+
+        if (placed.row !== block.correctRow || placed.indentation !== block.correctCol) {
+          return {
+            id: block.id,
+            currentRow: placed.row,
+            currentCol: placed.indentation,
+            correctRow: block.correctRow,
+            correctCol: block.correctCol
+          };
+        }
+        return null;
+      })
+      .filter((block): block is NonNullable<typeof block> => block !== null);
+
+    if (incorrectBlocks.length > 0) {
+      // Randomly select one incorrect block
+      const randomBlock = incorrectBlocks[Math.floor(Math.random() * incorrectBlocks.length)];
+      
+      // Calculate all needed directions
+      const directions: Array<'up' | 'down' | 'left' | 'right'> = [];
+      
+      if (randomBlock.currentRow > randomBlock.correctRow) {
+        directions.push('up');
       }
+      if (randomBlock.currentRow < randomBlock.correctRow) {
+        directions.push('down');
+      }
+      if (randomBlock.currentCol > randomBlock.correctCol) {
+        directions.push('left');
+      }
+      if (randomBlock.currentCol < randomBlock.correctCol) {
+        directions.push('right');
+      }
+
+      setHintBlock({ id: randomBlock.id, directions });
+      
+      // Start cooldown
+      setHintCooldown(true);
+      setTimeout(() => {
+        setHintCooldown(false);
+        setHintBlock(null);
+      }, 10000); // 10 seconds cooldown
+    } else {
+      alert('All blocks are correctly placed!');
     }
-    alert('All blocks are correctly placed!');
-  }, [puzzle, placedBlocks]);
+  }, [puzzle, placedBlocks, hintCooldown]);
 
   const handleCheck = useCallback(() => {
     if (!puzzle) return;
     // Check if blocks are in correct positions
     let isCorrect = true;
+    const newIncorrectBlocks = new Set<number>();
     const sortedPlaced = [...placedBlocks].sort((a, b) => a.row - b.row);
 
     for (let i = 0; i < puzzle.blocks.length; i++) {
@@ -294,10 +343,16 @@ export default function PuzzlePage() {
           actual.indentation !== expected.correctCol ||
           actual.row !== expected.correctRow) {
         isCorrect = false;
-        break;
+        if (actual) {
+          newIncorrectBlocks.add(actual.block.id);
+        }
       }
     }
-    alert(isCorrect ? 'Correct! Well done!' : 'Not quite right. Keep trying!');
+
+    setIncorrectBlocks(newIncorrectBlocks);
+    if (isCorrect) {
+      alert('Correct! Well done!');
+    }
   }, [puzzle, placedBlocks]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -386,6 +441,11 @@ export default function PuzzlePage() {
     }
   }, [handleUndo, handleRedo]);
 
+  // Clear incorrect blocks on any change
+  useEffect(() => {
+    setIncorrectBlocks(new Set());
+  }, [placedBlocks]);
+
   // Don't render until puzzle is loaded (client-side)
   if (!puzzle) {
     return null;
@@ -401,7 +461,11 @@ export default function PuzzlePage() {
           onDragEnd={handleDragEnd}
         >
           <Sidebar blocks={puzzle.blocks} placedBlocks={placedBlockIds} />
-          <Canvas placedBlocks={placedBlocks} />
+          <Canvas 
+            placedBlocks={placedBlocks} 
+            incorrectBlocks={incorrectBlocks}
+            hintBlock={hintBlock || undefined}
+          />
           <DragOverlay>
             {activeBlock && (
               <div 
@@ -426,6 +490,7 @@ export default function PuzzlePage() {
         onCheck={handleCheck}
         canUndo={historyIndex > 0}
         canRedo={historyIndex < history.length - 1}
+        hintCooldown={hintCooldown}
       />
     </main>
   );

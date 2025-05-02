@@ -10,9 +10,11 @@ interface DraggableBlockProps {
   block: CodeBlock;
   indentation: number;
   row: number;
+  isIncorrect?: boolean;
+  hintArrows?: Array<'up' | 'down' | 'left' | 'right'>;
 }
 
-const SortableBlock = ({ block, indentation, row }: DraggableBlockProps) => {
+const SortableBlock = ({ block, indentation, row, isIncorrect, hintArrows }: DraggableBlockProps) => {
   const {
     attributes,
     listeners,
@@ -42,17 +44,80 @@ const SortableBlock = ({ block, indentation, row }: DraggableBlockProps) => {
     willChange: 'transform, opacity, margin-left, top',
   };
 
+  const getArrowStyle = (direction: 'up' | 'down' | 'left' | 'right'): CSSProperties => {
+    const baseStyle: CSSProperties = {
+      width: 0,
+      height: 0,
+      position: 'absolute',
+      borderStyle: 'solid',
+    };
+
+    switch (direction) {
+      case 'up':
+        return {
+          ...baseStyle,
+          bottom: `calc(100% + 0.75rem)`,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginBottom: 0,
+          borderWidth: '0 0.5rem 0.5rem 0.5rem',
+          borderColor: 'transparent transparent rgb(248, 23, 23) transparent',
+        };
+      case 'down':
+        return {
+          ...baseStyle,
+          top: `calc(100% + 0.75rem)`,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginTop: 0,
+          borderWidth: '0.5rem 0.5rem 0 0.5rem',
+          borderColor: 'rgb(248, 23, 23) transparent transparent transparent',
+        };
+      case 'left':
+        return {
+          ...baseStyle,
+          top: '50%',
+          right: `calc(100% + 1.25rem)`,
+          transform: 'translateY(-50%)',
+          marginRight: 0,
+          borderWidth: '0.5rem 0.5rem 0.5rem 0',
+          borderColor: 'transparent rgb(248, 23, 23) transparent transparent',
+        };
+      case 'right':
+        return {
+          ...baseStyle,
+          top: '50%',
+          left: `calc(100% + 1.25rem)`,
+          transform: 'translateY(-50%)',
+          marginLeft: 0,
+          borderWidth: '0.5rem 0 0.5rem 0.5rem',
+          borderColor: 'transparent transparent transparent rgb(248, 23, 23)',
+        };
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
-      className="py-1 px-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 cursor-move hover:shadow select-none group"
+      className={`py-1 px-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm border cursor-move hover:shadow select-none group transition-all duration-200 relative
+        ${isIncorrect ? 'border-red-500 border-2' : 'border-gray-200 dark:border-gray-700'}
+        ${hintArrows?.length ? 'ring-2 ring-red-500 ring-offset-2' : ''}`}
       data-row={row}
       data-indentation={indentation}
     >
-      <CodeBlockWithExplanation block={block} />
+      <div className="relative">
+        <CodeBlockWithExplanation block={block} />
+        {hintArrows?.map((direction, index) => (
+          <div 
+            key={direction}
+            className="animate-bounce"
+            style={getArrowStyle(direction)}
+          />
+        ))}
+      </div>
       {/* Indentation controls */}
       <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 px-2">
         <button
@@ -92,9 +157,14 @@ interface CanvasProps {
     indentation: number;
     row: number;
   }>;
+  incorrectBlocks?: Set<number>;
+  hintBlock?: {
+    id: number;
+    directions: Array<'up' | 'down' | 'left' | 'right'>;
+  };
 }
 
-export const Canvas = ({ placedBlocks }: CanvasProps) => {
+export const Canvas = ({ placedBlocks, incorrectBlocks = new Set(), hintBlock }: CanvasProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: 'canvas',
     data: {
@@ -121,6 +191,8 @@ export const Canvas = ({ placedBlocks }: CanvasProps) => {
               block={block}
               indentation={indentation}
               row={index}
+              isIncorrect={incorrectBlocks.has(block.id)}
+              hintArrows={hintBlock?.id === block.id ? hintBlock.directions : undefined}
             />
           ))}
         </div>
