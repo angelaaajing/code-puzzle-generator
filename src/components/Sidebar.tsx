@@ -6,9 +6,10 @@ import { CodeBlockWithExplanation } from '@/components/CodeBlockWithExplanation'
 
 interface DraggableCodeBlockProps {
   block: CodeBlock;
+  language?: string;
 }
 
-const DraggableCodeBlock = ({ block }: DraggableCodeBlockProps) => {
+const DraggableCodeBlock = ({ block, language }: DraggableCodeBlockProps) => {
   const {
     attributes,
     listeners,
@@ -40,9 +41,9 @@ const DraggableCodeBlock = ({ block }: DraggableCodeBlockProps) => {
       style={style}
       {...attributes}
       {...listeners}
-      className="py-1 px-3 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 cursor-move hover:shadow select-none"
+      className="py-1 px-2 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 cursor-move hover:shadow select-none"
     >
-      <CodeBlockWithExplanation block={block} />
+      <CodeBlockWithExplanation block={block} language={language} className="!overflow-visible" />
     </div>
   );
 };
@@ -50,9 +51,10 @@ const DraggableCodeBlock = ({ block }: DraggableCodeBlockProps) => {
 interface SidebarProps {
   blocks: CodeBlock[];
   placedBlocks: Set<number>;
+  language?: string;
 }
 
-export const Sidebar = ({ blocks, placedBlocks }: SidebarProps) => {
+export const Sidebar = ({ blocks, placedBlocks, language }: SidebarProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: 'sidebar',
     data: {
@@ -72,7 +74,7 @@ export const Sidebar = ({ blocks, placedBlocks }: SidebarProps) => {
     >
       <div className="space-y-2">
         {availableBlocks.map((block) => (
-          <DraggableCodeBlock key={block.id} block={block} />
+          <DraggableCodeBlock key={block.id} block={block} language={language} />
         ))}
       </div>
     </div>

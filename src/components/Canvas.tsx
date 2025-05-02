@@ -12,9 +12,10 @@ interface DraggableBlockProps {
   row: number;
   isIncorrect?: boolean;
   hintArrows?: Array<'up' | 'down' | 'left' | 'right'>;
+  language?: string;
 }
 
-const SortableBlock = ({ block, indentation, row, isIncorrect, hintArrows }: DraggableBlockProps) => {
+const SortableBlock = ({ block, indentation, row, isIncorrect, hintArrows, language }: DraggableBlockProps) => {
   const {
     attributes,
     listeners,
@@ -109,7 +110,7 @@ const SortableBlock = ({ block, indentation, row, isIncorrect, hintArrows }: Dra
       data-indentation={indentation}
     >
       <div className="relative">
-        <CodeBlockWithExplanation block={block} />
+        <CodeBlockWithExplanation block={block} language={language} className="!overflow-visible" />
         {hintArrows?.map((direction, index) => (
           <div 
             key={direction}
@@ -162,9 +163,10 @@ interface CanvasProps {
     id: number;
     directions: Array<'up' | 'down' | 'left' | 'right'>;
   };
+  language?: string;
 }
 
-export const Canvas = ({ placedBlocks, incorrectBlocks = new Set(), hintBlock }: CanvasProps) => {
+export const Canvas = ({ placedBlocks, incorrectBlocks = new Set(), hintBlock, language }: CanvasProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: 'canvas',
     data: {
@@ -185,14 +187,15 @@ export const Canvas = ({ placedBlocks, incorrectBlocks = new Set(), hintBlock }:
         strategy={verticalListSortingStrategy}
       >
         <div className="relative min-h-full">
-          {placedBlocks.map(({ block, indentation }, index) => (
+          {placedBlocks.map(({ block, indentation }, _) => (
             <SortableBlock
               key={block.id}
               block={block}
               indentation={indentation}
-              row={index}
+              row={_}
               isIncorrect={incorrectBlocks.has(block.id)}
               hintArrows={hintBlock?.id === block.id ? hintBlock.directions : undefined}
+              language={language}
             />
           ))}
         </div>

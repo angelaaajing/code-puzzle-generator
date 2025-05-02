@@ -21,6 +21,8 @@ import { Sidebar } from '@/components/Sidebar';
 import { Canvas } from '@/components/Canvas';
 import { ControlPanel } from '@/components/ControlPanel';
 import { GRID_CONFIG } from '@/lib/config';
+import { CodeBlockWithExplanation } from '@/components/CodeBlockWithExplanation';
+import { detectLanguage } from '@/lib/utils';
 
 interface PlacedBlock {
   block: CodeBlock;
@@ -44,23 +46,26 @@ function calculateGridPosition(x: number, y: number, canvasRect: DOMRect): { ind
 export default function PuzzlePage() {
   // Only access localStorage on the client to avoid SSR errors
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
+  const [detectedLanguage, setDetectedLanguage] = useState<string>('python');
 
   useEffect(() => {
     // This runs only on the client
     let loadedPuzzle: Puzzle | null = null;
     try {
-      const savedPuzzle = typeof window !== 'undefined' ? window.localStorage.getItem('NEW_PUZZLE') : null;
-      if (savedPuzzle) {
+      if (typeof window !== 'undefined') {
         try {
-          loadedPuzzle = JSON.parse(savedPuzzle);
-          // Clear the stored puzzle to avoid reusing it
-          window.localStorage.removeItem('NEW_PUZZLE');
+          const savedPuzzle = window.localStorage.getItem('NEW_PUZZLE');
+          if (savedPuzzle) {
+            loadedPuzzle = JSON.parse(savedPuzzle);
+            window.localStorage.removeItem('NEW_PUZZLE');
+          }
         } catch (error) {
           console.error('Failed to parse puzzle:', error);
         }
       }
     } catch (e) {
       // localStorage not available or not defined
+      console.error('Failed to parse puzzle:', e);
     }
     if (!loadedPuzzle) {
       loadedPuzzle = {
@@ -111,6 +116,14 @@ export default function PuzzlePage() {
       };
     }
     setPuzzle(loadedPuzzle);
+
+    // Detect language from the first code block
+    if (loadedPuzzle.blocks.length > 0) {
+      // Combine all code blocks to make a more accurate detection
+      const allCode = loadedPuzzle.blocks.map(block => block.code).join('\n');
+      const language = detectLanguage(allCode);
+      setDetectedLanguage(language);
+    }
   }, []);
 
   const [placedBlocks, setPlacedBlocks] = useState<PlacedBlock[]>([]);
@@ -167,7 +180,7 @@ export default function PuzzlePage() {
     if (!canvasRect) return;
 
     // Calculate grid position
-    const { indentation, row } = calculateGridPosition(mouseX, mouseY, canvasRect);
+    const { indentation } = calculateGridPosition(mouseX, mouseY, canvasRect);
 
     // Handle dropping on canvas
     if (over.id === 'canvas' || typeof over.id === 'string' && over.id.startsWith('canvas-')) {
@@ -518,24 +531,28 @@ export default function PuzzlePage() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <Sidebar blocks={puzzle.blocks} placedBlocks={placedBlockIds} />
+          <Sidebar blocks={puzzle.blocks} placedBlocks={placedBlockIds} language={detectedLanguage} />
           <Canvas 
             placedBlocks={placedBlocks} 
             incorrectBlocks={incorrectBlocks}
             hintBlock={hintBlock || undefined}
+            language={detectedLanguage}
           />
           <DragOverlay>
             {activeBlock && (
               <div 
-                className="py-1 px-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 cursor-move select-none"
+                className="py-1 px-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 cursor-move select-none overflow-hidden"
                 style={{
                   width: 'fit-content',
+                  maxWidth: '90vw',
                   marginLeft: activeBlock.indentation ? `${activeBlock.indentation * GRID_CONFIG.INDENT_SIZE}rem` : 0
                 }}
               >
-                <pre className="text-sm font-mono whitespace-pre dark:text-gray-200">
-                  {activeBlock.block.code}
-                </pre>
+                <CodeBlockWithExplanation 
+                  block={activeBlock.block} 
+                  language={detectedLanguage}
+                  className="!overflow-visible" // Override overflow for precise sizing
+                />
               </div>
             )}
           </DragOverlay>
