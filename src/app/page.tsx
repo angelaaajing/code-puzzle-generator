@@ -40,6 +40,7 @@ export default function HomePage() {
     if (data.puzzle) {
       // store puzzle and navigate to the puzzle page
       localStorage.setItem('NEW_PUZZLE', JSON.stringify(data.puzzle));
+      console.log('puzzle', data.puzzle);
       router.push('/puzzle');
     } else {
       console.error(data.error || 'Failed to generate puzzle');

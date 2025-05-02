@@ -3,9 +3,38 @@
 import { CodeBlock } from '@/lib/types';
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import { detectLanguage } from '@/lib/utils';
-import * as monaco from 'monaco-editor';
+
+// Add global type for monaco loaded via script tags
+declare global {
+  interface Window {
+    monaco: {
+      editor: {
+        colorize: (code: string, language: string, options: object) => Promise<string>;
+      }
+    };
+    require: {
+      config: (options: { paths: Record<string, string> }) => void;
+      (modules: string[], callback: () => void): void;
+    };
+    monacoReady?: boolean;
+  }
+}
+
+// Helper function to ensure monaco is loaded
+const colorizeCode = async (code: string, language: string): Promise<string> => {
+  // Wait for monaco to be loaded
+  if (typeof window === 'undefined' || !window.monaco || !window.monaco.editor) {
+    return `<span>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+  }
+
+  try {
+    return await window.monaco.editor.colorize(code, language, {});
+  } catch (err) {
+    console.error('Failed to colorize code:', err);
+    return `<span>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+  }
+};
 
 interface CodeBlockWithExplanationProps {
   block: CodeBlock;
@@ -21,7 +50,10 @@ export const CodeBlockWithExplanation = ({ block, className = '', style, languag
   // Use provided language or detect it if not provided
   const codeLanguage = language || detectLanguage(block.code);
   const [theme, setTheme] = useState('light');
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const codeRef = useRef<HTMLDivElement>(null);
+  const [isMonacoLoaded, setIsMonacoLoaded] = useState(
+    typeof window !== 'undefined' && window.monacoReady === true
+  );
   
   // Calculate simple dimensions based on content
   const lines = block.code.split('\n');
@@ -30,7 +62,28 @@ export const CodeBlockWithExplanation = ({ block, className = '', style, languag
   
   // Simple calculation for dimensions
   const height = `${lineCount * 20}px`; // Approximately 20px per line
-  const width = `${maxLineLength * 8 + 16}px`; // Approximate character width plus padding
+  const width = `${maxLineLength * 8 + 32}px`; // Approximate character width plus padding
+
+  // Check if Monaco is loaded
+  useEffect(() => {
+    // Handle the monaco-ready event
+    const handleMonacoReady = () => {
+      setIsMonacoLoaded(true);
+    };
+
+    // If monaco is already ready, set state immediately
+    if (typeof window !== 'undefined' && window.monacoReady) {
+      setIsMonacoLoaded(true);
+    } else {
+      // Otherwise listen for the ready event
+      window.addEventListener('monaco-ready', handleMonacoReady);
+      
+      // Clean up
+      return () => {
+        window.removeEventListener('monaco-ready', handleMonacoReady);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     if (showTooltip && questionMarkRef.current) {
@@ -69,11 +122,24 @@ export const CodeBlockWithExplanation = ({ block, className = '', style, languag
       observer.disconnect();
     };
   }, []);
-  
-  // Handle editor mount to get reference
-  const handleEditorDidMount: OnMount = (editor) => {
-    editorRef.current = editor;
-  };
+
+  // Apply colorization when Monaco is loaded or code/language changes
+  useEffect(() => {
+    // Always set the plain text content first for immediate display
+    if (codeRef.current) {
+      codeRef.current.textContent = block.code;
+    }
+    
+    // Only attempt colorization if Monaco is loaded
+    if (isMonacoLoaded && codeRef.current) {
+      colorizeCode(block.code, codeLanguage)
+        .then(html => {
+          if (codeRef.current) {
+            codeRef.current.innerHTML = html;
+          }
+        });
+    }
+  }, [block.code, codeLanguage, isMonacoLoaded]);
 
   return (
     <div className={`group relative overflow-visible ${className}`} style={style}>
@@ -83,35 +149,18 @@ export const CodeBlockWithExplanation = ({ block, className = '', style, languag
           height,
           width,
           minHeight: '12px',
-          minWidth: '100px'
+          minWidth: '100px',
+          padding: '4px',
+          backgroundColor: theme === 'vs-dark' ? '#1e1e1e' : '#ffffff',
+          color: theme === 'vs-dark' ? '#d4d4d4' : '#000000'
         }}
       >
-        <Editor
-          height="100%"
-          width="100%"
-          value={block.code}
-          language={codeLanguage}
-          theme={theme}
-          onMount={handleEditorDidMount}
-          options={{
-            readOnly: true,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            folding: false,
-            lineNumbers: 'off',
-            glyphMargin: false,
-            lineDecorationsWidth: 0,
-            lineNumbersMinChars: 0,
-            scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
-            overviewRulerBorder: false,
-            overviewRulerLanes: 0,
-            hideCursorInOverviewRuler: true,
-            renderLineHighlight: 'none',
-            fontSize: 13,
-            automaticLayout: true,
-            fixedOverflowWidgets: true,
-            padding: { top: 4, bottom: 4 },
-            wordWrap: 'off',
+        <div 
+          ref={codeRef}
+          className="code-content font-mono text-sm whitespace-pre-wrap"
+          style={{ 
+            overflow: 'hidden',
+            tabSize: 2
           }}
         />
       </div>

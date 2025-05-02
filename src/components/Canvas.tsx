@@ -97,6 +97,33 @@ const SortableBlock = ({ block, indentation, row, isIncorrect, hintArrows, langu
     }
   };
 
+  // Simplified version during dragging to prevent monaco editor issues
+  const renderBlockContent = () => {
+    if (isDragging) {
+      // Render simpler version during drag to avoid editor instantiation/disposal issues
+      return (
+        <div className="relative code-block-placeholder p-2">
+          <pre className="whitespace-pre-wrap text-sm font-mono">
+            {block.code}
+          </pre>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="relative">
+        <CodeBlockWithExplanation block={block} language={language} className="!overflow-visible" />
+        {hintArrows?.map((direction) => (
+          <div 
+            key={direction}
+            className="animate-bounce"
+            style={getArrowStyle(direction)}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -109,16 +136,7 @@ const SortableBlock = ({ block, indentation, row, isIncorrect, hintArrows, langu
       data-row={row}
       data-indentation={indentation}
     >
-      <div className="relative">
-        <CodeBlockWithExplanation block={block} language={language} className="!overflow-visible" />
-        {hintArrows?.map((direction, index) => (
-          <div 
-            key={direction}
-            className="animate-bounce"
-            style={getArrowStyle(direction)}
-          />
-        ))}
-      </div>
+      {renderBlockContent()}
       {/* Indentation controls */}
       <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 px-2">
         <button

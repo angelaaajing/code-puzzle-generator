@@ -21,7 +21,6 @@ import { Sidebar } from '@/components/Sidebar';
 import { Canvas } from '@/components/Canvas';
 import { ControlPanel } from '@/components/ControlPanel';
 import { GRID_CONFIG } from '@/lib/config';
-import { CodeBlockWithExplanation } from '@/components/CodeBlockWithExplanation';
 import { detectLanguage } from '@/lib/utils';
 
 interface PlacedBlock {
@@ -53,21 +52,25 @@ export default function PuzzlePage() {
     let loadedPuzzle: Puzzle | null = null;
     try {
       if (typeof window !== 'undefined') {
-        try {
-          const savedPuzzle = window.localStorage.getItem('NEW_PUZZLE');
-          if (savedPuzzle) {
-            loadedPuzzle = JSON.parse(savedPuzzle);
-            window.localStorage.removeItem('NEW_PUZZLE');
+        const savedPuzzle = window.localStorage.getItem('NEW_PUZZLE');
+        console.log('savedPuzzle', savedPuzzle);
+        if (savedPuzzle) {
+          const parsedData = JSON.parse(savedPuzzle);
+          // Handle both cases: when data is an array of blocks or a Puzzle object
+          if (Array.isArray(parsedData)) {
+            loadedPuzzle = { blocks: parsedData };
+          } else if (parsedData && typeof parsedData === 'object') {
+            loadedPuzzle = parsedData;
           }
-        } catch (error) {
-          console.error('Failed to parse puzzle:', error);
         }
       }
     } catch (e) {
       // localStorage not available or not defined
       console.error('Failed to parse puzzle:', e);
     }
+    // Only set default puzzle if no puzzle was loaded
     if (!loadedPuzzle) {
+      console.log('no puzzle found');
       loadedPuzzle = {
         blocks: [
           {
@@ -117,8 +120,8 @@ export default function PuzzlePage() {
     }
     setPuzzle(loadedPuzzle);
 
-    // Detect language from the first code block
-    if (loadedPuzzle.blocks.length > 0) {
+    // Ensure loadedPuzzle and blocks exist before trying to use them
+    if (loadedPuzzle && Array.isArray(loadedPuzzle.blocks)) {
       // Combine all code blocks to make a more accurate detection
       const allCode = loadedPuzzle.blocks.map(block => block.code).join('\n');
       const language = detectLanguage(allCode);
@@ -165,7 +168,10 @@ export default function PuzzlePage() {
     const isFromCanvas = activeId.startsWith('canvas-');
     const blockId = parseInt(activeId.replace(/^(sidebar-|canvas-)/, ''));
     
-    const block = puzzle.blocks.find(b => b.id === blockId);
+    // Defensive: Only call .find if puzzle.blocks exists and is an array
+    const block = puzzle.blocks && Array.isArray(puzzle.blocks)
+      ? puzzle.blocks.find(b => b.id === blockId)
+      : undefined;
     if (!block) {
       setActiveBlock(null);
       return;
@@ -382,6 +388,12 @@ export default function PuzzlePage() {
   const handleCheck = useCallback(() => {
     if (!puzzle) return;
     
+    // Check if all blocks are placed on the canvas
+    if (placedBlockIds.size < puzzle.blocks.length) {
+      alert('Please place all code blocks on the canvas before checking your solution.');
+      return;
+    }
+    
     // Group blocks by their code to handle duplicates
     const expectedBlocksByCode = new Map<string, Array<{id: number; row: number; col: number}>>();
     puzzle.blocks.forEach(block => {
@@ -421,10 +433,11 @@ export default function PuzzlePage() {
     });
 
     setIncorrectBlocks(newIncorrectBlocks);
+    
     if (isCorrect) {
       alert('Correct! Well done!');
     }
-  }, [puzzle, placedBlocks]);
+  }, [puzzle, placedBlocks, placedBlockIds]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     if (!puzzle) return;
@@ -538,7 +551,7 @@ export default function PuzzlePage() {
             hintBlock={hintBlock || undefined}
             language={detectedLanguage}
           />
-          <DragOverlay>
+          <DragOverlay dropAnimation={null}>
             {activeBlock && (
               <div 
                 className="py-1 px-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 cursor-move select-none overflow-hidden"
@@ -548,11 +561,19 @@ export default function PuzzlePage() {
                   marginLeft: activeBlock.indentation ? `${activeBlock.indentation * GRID_CONFIG.INDENT_SIZE}rem` : 0
                 }}
               >
-                <CodeBlockWithExplanation 
-                  block={activeBlock.block} 
-                  language={detectedLanguage}
-                  className="!overflow-visible" // Override overflow for precise sizing
-                />
+                <pre 
+                  className="whitespace-pre-wrap text-sm font-mono p-1"
+                  style={{
+                    width: (() => {
+                      const lines = activeBlock.block.code.split('\n');
+                      const maxLineLength = Math.max(...lines.map(line => line.length));
+                      return `${maxLineLength * 8 + 32}px`;
+                    })(),
+                    minWidth: '100px'
+                  }}
+                >
+                  {activeBlock.block.code}
+                </pre>
               </div>
             )}
           </DragOverlay>

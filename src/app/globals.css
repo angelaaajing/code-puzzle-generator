@@ -44,3 +44,28 @@ body {
   width: 100% !important;
   height: 100% !important;
 }
+
+/* Styles for colorized code */
+.code-content {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+/* Style colorized spans from monaco */
+.code-content .mtk1, 
+.code-content .mtk2, 
+.code-content .mtk3, 
+.code-content .mtk4, 
+.code-content .mtk5, 
+.code-content .mtk6, 
+.code-content .mtk7, 
+.code-content .mtk8, 
+.code-content .mtk9 {
+  font-family: inherit !important;
+}
+
+/* Fix colorized line spacing */
+.code-content span[class*="mtk"] {
+  line-height: inherit;
+}

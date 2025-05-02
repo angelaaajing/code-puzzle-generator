@@ -22,19 +22,19 @@ export async function POST(req: NextRequest) {
 
   const openai = new OpenAI({ apiKey });
 
-  const systemMessage = `You are a code puzzle generator. Given a programming task, generate a solution in 3-10 code blocks.
-      For each block:
-      1. Write a logical unit of the solution (e.g., a function, a loop body, or a meaningful group of statements) without any indentation
-      2. Provide a brief explanation of what that code does
-      3. Specify where this block should go in a grid (row and column numbers, starting from 0)
+  const systemMessage = `You are a **code puzzle generator**.  
+    **Input:** A natural-language description of a programming task.  
+    **Output:** A single JSON array of **3-15** objects, each describing one “tile” (code block) in the solution grid.  
+
       Format the response as a JSON array of objects with the following structure for each block:
-      {
-          "id": number (unique identifier),
-          "code": "the code snippet without any indentation",
-          "explanation": "brief explanation of what this block does",
-          "correctRow": number (vertical position, starting from 0),
-          "correctCol": number (horizontal position, starting from 0)
-      }`;
+    {
+      "id":        0,               // integer, unique identifier for this block
+      "code":      "print('…')",    // string, the code snippet **without** leading spaces
+      "explanation":"…",            // string, a 1-2 sentence summary of what the snippet does
+      "correctRow":0,               // integer, row index in the grid (0 = top)
+      "correctCol":1                // integer, column index (0 = left; each indent level = 4 spaces)
+    }
+      `;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     // shuffle them in-place:
     shuffleInPlace(blocks);
 
-    return NextResponse.json({ puzzle: blocks }, { status: 200 });
+    return NextResponse.json({ puzzle: { blocks } }, { status: 200 });
 
   } catch (e: unknown) {
     console.error('[OPENAI ERROR]', e instanceof Error ? e.message : e);
