@@ -276,20 +276,58 @@ export default function PuzzlePage() {
   const handleHint = useCallback(() => {
     if (!puzzle || hintCooldown) return;
     
+    // Group blocks by their code to handle duplicates
+    const expectedBlocksByCode = new Map<string, Array<{id: number; row: number; col: number}>>();
+    puzzle.blocks.forEach(block => {
+      const existing = expectedBlocksByCode.get(block.code) || [];
+      existing.push({ id: block.id, row: block.correctRow, col: block.correctCol });
+      expectedBlocksByCode.set(block.code, existing);
+    });
+
     // Find all incorrectly placed blocks
     const incorrectBlocks = puzzle.blocks
       .map(block => {
         const placed = placedBlocks.find(item => item.block.id === block.id);
         if (!placed) return null;
 
-        if (placed.row !== block.correctRow || placed.indentation !== block.correctCol) {
-          return {
-            id: block.id,
-            currentRow: placed.row,
-            currentCol: placed.indentation,
-            correctRow: block.correctRow,
-            correctCol: block.correctCol
-          };
+        // Get all possible positions for this code
+        const possiblePositions = expectedBlocksByCode.get(block.code) || [];
+        
+        // Check if this block is in any of its possible correct positions
+        const isInCorrectPosition = possiblePositions.some(pos => {
+          // Check if this position hasn't been taken by another block with same code
+          const otherBlockInPosition = placedBlocks.find(other => 
+            other !== placed && 
+            other.block.code === placed.block.code &&
+            other.row === pos.row &&
+            other.indentation === pos.col
+          );
+          
+          return !otherBlockInPosition && 
+                 placed.row === pos.row && 
+                 placed.indentation === pos.col;
+        });
+
+        if (!isInCorrectPosition) {
+          // Find the closest available correct position
+          const availablePosition = possiblePositions.find(pos => 
+            !placedBlocks.some(other => 
+              other !== placed && 
+              other.block.code === placed.block.code &&
+              other.row === pos.row &&
+              other.indentation === pos.col
+            )
+          );
+
+          if (availablePosition) {
+            return {
+              id: block.id,
+              currentRow: placed.row,
+              currentCol: placed.indentation,
+              correctRow: availablePosition.row,
+              correctCol: availablePosition.col
+            };
+          }
         }
         return null;
       })
@@ -330,24 +368,44 @@ export default function PuzzlePage() {
 
   const handleCheck = useCallback(() => {
     if (!puzzle) return;
-    // Check if blocks are in correct positions
+    
+    // Group blocks by their code to handle duplicates
+    const expectedBlocksByCode = new Map<string, Array<{id: number; row: number; col: number}>>();
+    puzzle.blocks.forEach(block => {
+      const existing = expectedBlocksByCode.get(block.code) || [];
+      existing.push({ id: block.id, row: block.correctRow, col: block.correctCol });
+      expectedBlocksByCode.set(block.code, existing);
+    });
+
+    // Check if blocks are in correct positions, accounting for duplicates
     let isCorrect = true;
     const newIncorrectBlocks = new Set<number>();
     const sortedPlaced = [...placedBlocks].sort((a, b) => a.row - b.row);
 
-    for (let i = 0; i < puzzle.blocks.length; i++) {
-      const expected = puzzle.blocks[i];
-      const actual = sortedPlaced[i];
-      if (!actual || 
-          actual.block.id !== expected.id || 
-          actual.indentation !== expected.correctCol ||
-          actual.row !== expected.correctRow) {
+    // For each placed block, check if it matches any valid position for its code
+    sortedPlaced.forEach(placed => {
+      const possiblePositions = expectedBlocksByCode.get(placed.block.code) || [];
+      
+      // Check if this block is in any of its possible correct positions
+      const isInCorrectPosition = possiblePositions.some(pos => {
+        // Check if this position hasn't been taken by another block with same code
+        const otherBlockInPosition = sortedPlaced.find(other => 
+          other !== placed && 
+          other.block.code === placed.block.code &&
+          other.row === pos.row &&
+          other.indentation === pos.col
+        );
+        
+        return !otherBlockInPosition && 
+               placed.row === pos.row && 
+               placed.indentation === pos.col;
+      });
+
+      if (!isInCorrectPosition) {
         isCorrect = false;
-        if (actual) {
-          newIncorrectBlocks.add(actual.block.id);
-        }
+        newIncorrectBlocks.add(placed.block.id);
       }
-    }
+    });
 
     setIncorrectBlocks(newIncorrectBlocks);
     if (isCorrect) {
