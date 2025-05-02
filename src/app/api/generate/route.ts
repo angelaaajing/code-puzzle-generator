@@ -24,13 +24,13 @@ export async function POST(req: NextRequest) {
 
   const systemMessage = `You are a code puzzle generator. Given a programming task, generate a solution in 3-10 code blocks.
       For each block:
-      1. Write a logical unit of the solution (e.g., a function, a loop body, or a meaningful group of statements)
+      1. Write a logical unit of the solution (e.g., a function, a loop body, or a meaningful group of statements) without any indentation
       2. Provide a brief explanation of what that code does
       3. Specify where this block should go in a grid (row and column numbers, starting from 0)
       Format the response as a JSON array of objects with the following structure for each block:
       {
           "id": number (unique identifier),
-          "code": "the code snippet",
+          "code": "the code snippet without any indentation",
           "explanation": "brief explanation of what this block does",
           "correctRow": number (vertical position, starting from 0),
           "correctCol": number (horizontal position, starting from 0)
