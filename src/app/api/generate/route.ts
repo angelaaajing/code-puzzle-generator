@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       Format the response as a JSON array of objects with the following structure for each block:
       {
           "id": number (unique identifier),
-          "code": "the code snippet",
+          "code": "the code snippet without leading spaces",
           "explanation": "brief explanation of what this block does",
           "correctRow": number (vertical position, starting from 0),
           "correctCol": number (horizontal position, starting from 0, each indent level = 4 spaces)
