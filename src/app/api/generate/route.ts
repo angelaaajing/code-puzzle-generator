@@ -22,19 +22,36 @@ export async function POST(req: NextRequest) {
 
   const openai = new OpenAI({ apiKey });
 
-  const systemMessage = `You are a **code puzzle generator**.  
-    **Input:** A natural-language description of a programming task.  
-    **Output:** A single JSON array of **3-15** objects, each describing one “tile” (code block) in the solution grid.  
-
+  const systemMessage = `You are a code puzzle generator. Given a programming task, generate a solution in 3-10 code blocks.
+      For each block:
+      1. Write a logical unit of the solution (e.g., a function, a loop body, or a meaningful group of statements)
+      2. Provide a brief explanation of what that code does
+      3. Specify where this block should go in a grid (row and column numbers, starting from 0)
       Format the response as a JSON array of objects with the following structure for each block:
-    {
-      "id":        0,               // integer, unique identifier for this block
-      "code":      "print('…')",    // string, the code snippet **without** leading spaces
-      "explanation":"…",            // string, a 1-2 sentence summary of what the snippet does
-      "correctRow":0,               // integer, row index in the grid (0 = top)
-      "correctCol":1                // integer, column index (0 = left; each indent level = 4 spaces)
-    }
-      `;
+      {
+          "id": number (unique identifier),
+          "code": "the code snippet",
+          "explanation": "brief explanation of what this block does",
+          "correctRow": number (vertical position, starting from 0),
+          "correctCol": number (horizontal position, starting from 0, each indent level = 4 spaces)
+      }
+          Example Output:
+          [
+            {
+              "id": 0,
+              "code":"def sum_evens(nums):",
+              "explanation":"Define the function header.",
+              "correctRow":0,
+              "correctCol":0
+            },
+            {
+              "id": 1,
+              "code":"total=0",
+              "explanation":"Initialize the running sum to zero.",
+              "correctRow":1,
+              "correctCol":1
+            },
+          ]`;
 
   try {
     const completion = await openai.chat.completions.create({
